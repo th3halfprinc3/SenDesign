@@ -15,24 +15,46 @@
 # scope.
 
 import RPi.GPIO as GPIO
-import warnings
+from time import sleep
 
-
-# Takes care of RuntimeWarning's
-#warnings.simplefilter('error',RuntimeWarning)
-
-# Catch any uncleaned GPIO pins
-GPIO.cleanup()
+pwmPin = 7
 
 # Try to use BOARD instead of BCM.
 # This is because BCM can break between revisions of the Rasp Pi
 GPIO.setmode(GPIO.BOARD)
-GPIO.setup(12,GPIO.OUT)
+GPIO.setup(pwmPin, GPIO.OUT)
 
-p = GPIO.PWM(12,0.5)
-p.start(1)
-input('Press return to stop:')	# use raw_input for Python 2
-p.stop()
-GPIO.cleanup()
+p = GPIO.PWM(pwmPin, 20)	# Create a PWM object at pin pwmPin set at 20 Hz.
+p.start(0)	# Start the PWM at 0% duty cycle.
+
+print 'Press CTRL-C to stop the program at any time.'
+
+pauseTime = 1#0.02
+
+try:
+	while True:
+		for i in range(100):
+			p.ChangeDutyCycle(i)
+			sleep(pauseTime)
+		#Endfor
+
+		for i in range(100):
+			p.ChangeDutyCycle(100-i)
+			sleep(pauseTime)
+		#Endfor
+	#Endwhile
+	p.ChangeDutyCycle(0)
+
+except KeyboardInterrupt:
+	p.stop()
+
+finally:
+	p.stop()
+	GPIO.cleanup()
+	print 'GPIO Pins Cleaned.'
+#Endtry
+
+
+
 
 
