@@ -6,10 +6,11 @@ WHEN TYPING ON RASPBERRY PI B+ BE AWARE OF INCORRECT KEY MAPPINGS
 
 import RPi.GPIO as GPIO
 
-GPIO.setmode(GPIO.BCM)
+GPIO.setmode(GPIO.BOARD)
 
+button = 16
 # GPIO 23 set up as input. It is pulled up to stop false signals.
-GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(button, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 print '''Make sure you have a button connected so that when pressed
 it will connect GPIO port 23 (pin 16) to GND (pin 6)'''
@@ -27,7 +28,7 @@ wasting resources by polling for a button press.
 Press your button when ready to initiate a flling edge interrupt.'''
 
 try:
-	GPIO.wait_for_edge(23, GPIO.FALLING)
+	GPIO.wait_for_edge(button, GPIO.FALLING)
 	print '''
 Falling edge detected. Now your program can continue with
 whatever was waiting for a button press.'''
