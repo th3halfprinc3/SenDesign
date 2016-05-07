@@ -5,6 +5,10 @@
 '''
 NOTES:
 
+Button
+	- 16
+	- GND
+
 HLFB
 	- GREEN		GPIO Pin 12
 	- RED			GND
@@ -144,8 +148,8 @@ def controlSystem():
 	GPIO.output(ENABLE, GPIO.HIGH)
 	print 'Feedback enabled.'
 	
-	pauseTime = 0.1
-	j = 10
+	pauseTime = 0.02
+	j = 1
 	try:
 		while True:
 			
@@ -157,7 +161,7 @@ def controlSystem():
 				i = 0
 				print 'Clockwise'
 				while i <= 100:
-					pwmControl.ChangeDutyCycle(95)
+					pwmControl.ChangeDutyCycle(95)	# 60 deg/s clockwise
 					sleep(pauseTime)
 					i += 1
 				#Endwhile
@@ -165,7 +169,7 @@ def controlSystem():
 				i = 0
 				print 'Counter Clockwise'
 				while i <= 100:
-					pwmControl.ChangeDutyCycle(5)
+					pwmControl.ChangeDutyCycle(5)		# 60 deg/s ccw
 					sleep(pauseTime)
 					i += 1
 				#Endwhile
