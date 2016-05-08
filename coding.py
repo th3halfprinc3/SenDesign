@@ -1,21 +1,35 @@
-#!/usr/bin/python
+#!/usr/bin/pytho
 
 
 ########################################################################################
 '''
 NOTES:
 
+	SPICLK = 23
+	SPIMISO = 21
+	SPIMOSI = 19
+	SPICS = 24
+ADC
+	* SPICLK
+		- ORANGE		GPIO Pin 23
+	* SPIMISO	---	DOUT
+		- YELLOW		GPIO Pin 21
+	* SPIMOSI	---	DIN
+		- BLUE		GPIO Pin 19
+	* SPICS		---	CS
+		- VIOLET		GPIO Pin 24
+
 Button
-	- 16
+	- GPIO Pin 16
 	- GND
 
-HLFB
+HLFB	---	green
 	- GREEN		GPIO Pin 12
 	- RED			GND
-INPUT B
+INPUT B	---	white
 	- BLK			GPIO Pin 7
 	- YELLOW		GND
-ENABLE
+ENABLE	---	blue
 	- BLUE		GPIO Pin 40
 	- ORANGE		GND
 
@@ -33,9 +47,68 @@ print '\nImporting libraries...'
 import RPi.GPIO as GPIO
 from time import sleep
 import timeit
-#import time
+import time
 import os
+import spidev
 
+
+
+'''
+Extension:
+We want to start at 90 deg (or specified starting position), x(0) = pi/2 = 90 deg
+The Aext variable will be used to indicate when to send a high ENABLE signal
+to start the motor. The PWM (52 - 95% DC) should be slowly ramped up to 60 deg/s,
+or immediately to this value. The pot will be used to determine how much distance
+the brace has travelled. If the distance travelled + 90deg is within 2 or 3
+degrees (or use a percent error value, which would be more mathematically sound!)
+of Pext, then send a low ENABLE signal. This will stop the motor and allow the
+knee to move freely.
+
+Flexion:
+We want to start at 90 deg (or specified starting position), x(0) = pi/2 = 90 deg
+The Aflex variable will be used to indicate when to send a high ENABLE
+signal to start the motor. The PWM (5 - 48% DC) should slowly ramp up to 60
+deg/s. The voltage from the pot will be used to determine the distance the
+brace has travelled. If the distance travelled + 90 deg is within a
+mathematically sound percent error value, then a low ENABLE signal should be
+sent to disable the motor so the user can move their knee freely.
+
+
+
+def control(progNum, Aext, Aflex, Pext, Pflex):
+
+	x0 = 90
+	if ( progNum == 1 ):	# Extension
+	
+		#readPot()
+		# ...
+		# distTrav = 
+	
+		# If we have reached the end of the patients active ROM, engage motor.
+		if ( (distTrav - x0) <= Aext and not(Pext >= (distTrav - x0)) ):
+			GPIO.output(ENABLE, HIGH)	# Send a high enable signal to engage motor
+			controlSystem()
+		else:
+			pass
+		#End if
+	elif ( progNum == 2 ):	# Flexion
+		#readPot()
+		# ...
+		# distTrav = 
+		if (  ):
+#End 
+
+'''
+
+
+
+
+def readADC(adcnum):
+	if adcnum > 7 or adcnum < 0:
+		return -1
+	r = spi.xfer2([1, 8 + adcnum << 4, 0])
+	adcout = ((r[1] & 3) << 8) + r[2]
+	return adcout
 
 
 
@@ -73,49 +146,6 @@ def readPWM(pinNum):
 
 
 
-# read SPI data from MCP3008 chip, 8 possible adc's (0 thru 7)
-def readADC(adcnum, clockpin, mosipin, misopin, cspin):
-	if ((adcnum > 7) or (adcnum < 0)):
-		return -1
-
-	GPIO.output(cspin, True)
-
-	GPIO.output(clockpin, False)  # start clock low
-	GPIO.output(cspin, False)     # bring CS low
-
-	commandout = adcnum
-	commandout |= 0x18  # start bit + single-ended bit
-	commandout <<= 3    # we only need to send 5 bits here
-
-	for i in range(5):
-		if (commandout & 0x80):
-			GPIO.output(mosipin, True)
-
-		else:
-			GPIO.output(mosipin, False)
-		
-		commandout <<= 1
-		GPIO.output(clockpin, True)
-		GPIO.output(clockpin, False)
-	#End for
-
-	adcout = 0
-	# read in one empty bit, one null bit and 10 ADC bits
-	for i in range(12):
-		GPIO.output(clockpin, True)
-		GPIO.output(clockpin, False)
-		adcout <<= 1
-		if (GPIO.input(misopin)):
-			adcout |= 0x1
-
-	GPIO.output(cspin, True)
-
-	adcout >>= 1       # first bit is 'null' so drop it
-	return adcout
-#End readADC
-
-
-
 # Define any functions necesary
 def buttonPress(channel):
 	startb = timeit.timeit()
@@ -149,6 +179,7 @@ def controlSystem():
 	print 'Feedback enabled.'
 	
 	pauseTime = 0.02
+	adcNum = 0
 	j = 1
 	try:
 		while True:
@@ -161,6 +192,11 @@ def controlSystem():
 				i = 0
 				print 'Clockwise'
 				while i <= 100:
+					# This gives me the voltage, now associate it with a position!
+					anaVol =(3.3/1024) * readADC( adcNum )
+
+					print 'Analog voltage = ', anaVol
+
 					pwmControl.ChangeDutyCycle(95)	# 60 deg/s clockwise
 					sleep(pauseTime)
 					i += 1
@@ -169,6 +205,10 @@ def controlSystem():
 				i = 0
 				print 'Counter Clockwise'
 				while i <= 100:
+					# This gives me the voltage, now associate it with a position!
+					anaVol =(3.3/1024) * readADC( adcNum )
+
+					print 'Analog voltage = ', anaVol
 					pwmControl.ChangeDutyCycle(5)		# 60 deg/s ccw
 					sleep(pauseTime)
 					i += 1
@@ -176,6 +216,11 @@ def controlSystem():
 	
 			elif j == 10:
 				while True:
+					# This gives me the voltage, now associate it with a position!
+					anaVol =(3.3/1024) * readADC( adcNum )
+
+					print 'Analog voltage = ', anaVol
+
 					pwmControl.ChangeDutyCycle(95)
 					sleep(pauseTime)
 				#Endwhile
@@ -183,12 +228,22 @@ def controlSystem():
 			else:
 				print 'Clockwise'
 				for i in range(52, 101):
+					# This gives me the voltage, now associate it with a position!
+					anaVol =(3.3/1024) * readADC( adcNum )
+
+					print 'Analog voltage = ', anaVol
+
 					pwmControl.ChangeDutyCycle(i)
 					sleep(pauseTime)
 				#Endfor
 				
 				print 'Counter Clockwise'
 				for i in range(49):
+					# This gives me the voltage, now associate it with a position!
+					anaVol =(3.3/1024) * readADC( adcNum )
+
+					print 'Analog voltage = ', anaVol
+
 					pwmControl.ChangeDutyCycle(i)
 					sleep(pauseTime)
 				#Endfor
@@ -415,12 +470,12 @@ if __name__ == '__main__':
 	1. Initialize & setup pins for motor, rotary encoder and PWM.
 	2. Initialize any constants necessary.
 	'''
-
+	
+	# motor pins
 	inputB = 7
 	ENABLE = 40
 	HLFB = 12
 	button = 16
-
 	print '\nInitializing and setting up the motor...\n'
 
 	# Try to use BOARD instead of BCM.
@@ -445,7 +500,7 @@ if __name__ == '__main__':
 	# 52 - 100% dc results in a counter-clockwise(ccw) rotation.
 	pwmControl = GPIO.PWM(inputB, 50)	# Create a PWM object at pin inputB set at 50 Hz.
 	pwmControl.start(50)	# Start the PWM at 50% duty cycle
-
+	
 	# The GPIO.add_event_detect() line sets things up so that when a rising edge
 	# is detected on port 23, regardless of what is happening elsewhere in the
 	# program, the funciton 'buttonPress' will be run. This will even happen
@@ -453,6 +508,19 @@ if __name__ == '__main__':
 	GPIO.add_event_detect(button, GPIO.RISING, callback=buttonPress)
 
 	controlSystem()
+
+
+
+	# read the analog pin
+	trim_pot = readADC(potentiometer_adc, SPICLK, SPIMOSI, SPIMISO, SPICS)
+
+	# how much has it changed since the last read?
+	pot_adjust = abs(trim_pot - last_read)
+
+
+	if ( pot_adjust > tolerance ):
+		trim_pot_changed = True
+
 
 #Endif
 
@@ -467,81 +535,42 @@ if __name__ == '__main__':
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 '''
-# change these as desired - they're the pins connected from the
-# SPI port on the ADC to the Cobbler
-SPICLK = 18
-SPIMISO = 23
-SPIMOSI = 24
-SPICS = 25
-
-# set up the SPI interface pins
-GPIO.setup(SPIMOSI, GPIO.OUT)
-GPIO.setup(SPIMISO, GPIO.IN)
-GPIO.setup(SPICLK, GPIO.OUT)
-GPIO.setup(SPICS, GPIO.OUT)
-
-# 10k trim pot connected to adc #0
-potentiometer_adc = 0;
-
-last_read = 0       # this keeps track of the last potentiometer value
-tolerance = 5       # to keep from being jittery we'll only change
-                    # volume when the pot has moved more than 5 'counts'
-
 while True:
 	# we'll assume that the pot didn't move trim_pot_changed = False
 	trim_pot_changed = False
 
-	# read the analog pin
-	trim_pot = readADC(potentiometer_adc, SPICLK, SPIMOSI, SPIMISO, SPICS)
-
-	# how much has it changed since the last read?
-	pot_adjust = abs(trim_pot - last_read)
-
-	if DEBUG:
+		if DEBUG:
 		print "trim_pot:", trim_pot
 		print "pot_adjust:", pot_adjust
 		print "last_read", last_read
 
-	if ( pot_adjust > tolerance ):
-		trim_pot_changed = True
 
 	if DEBUG:
 		print "trim_pot_changed", trim_pot_changed
 
 	if ( trim_pot_changed ):
-		set_volume = trim_pot / 10.24           # convert 10bit adc0
-(0-1024) trim pot read into 0-100 volume level
-                set_volume = round(set_volume)          # round out decimal
-value
-                set_volume = int(set_volume)            # cast volume as
-integer
+		set_volume = trim_pot / 10.24		# convert 10bit adc0 (0-1024) trim pot read
+													# into 0-100 volume level
+		set_volume = round(set_volume)	# round out decimal value
+		set_volume = int(set_volume)		# cast volume as integer
 
-                print 'Volume = {volume}%' .format(volume = set_volume)
-                set_vol_cmd = 'sudo amixer cset numid=1 -- {volume}% > /dev/null' .format(volume = set_volume)
-                os.system(set_vol_cmd)  # set volume
+		print 'Volume = {volume}%' .format(volume = set_volume)
+		set_vol_cmd = 'sudo amixer cset numid=1 -- {volume}% > /dev/null' .format(volume = set_volume)
+		os.system(set_vol_cmd)  # set volume
 
-                if DEBUG:
-                        print "set_volume", set_volume
-                        print "tri_pot_changed", set_volume
+		# save the potentiometer reading for the next loop
+		last_read = trim_pot
 
-                # save the potentiometer reading for the next loop
-                last_read = trim_pot
-
-        # hang out and do nothing for a half second
-        time.sleep(0.5)
+		# hang out and do nothing for a half second
+		time.sleep(0.5)
 
 '''
 
+        
+	
+	
+
+
+#!/usr/bin/python
 
