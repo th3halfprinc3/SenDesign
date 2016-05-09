@@ -1,23 +1,34 @@
-from time import sleep
+import time
 import coding
 
 if __name__ == '__main__':
-	
+	response = []
+	try:
+		for i in range(100):
+			coding.controlSystem()
 
-	coding.controlSystem()
+			
+
+			totTime = 1000*abs(end - start)
+			response[i] = totTime
+		#End for
+	finally:
+		sleep(2)
+		print 'finally clause: '
+	#End try
+	
+	tot = 0
+	for i in range(1,len(response)):
+		tot += total[i]*(1e3)
+	avgTime = tot/len(total)	# ms
+	
+	print 'The average time is: ',avgTime,'ms'
 #Endif
 
 
 
-
-runTot = 0
-for i in range(1,len(total)):
-	runTot += total[i]*(1e3)
-avgTime = runTot/len(total)	# ms
-
-print 'The average time is: ',avgTime,'ms'
-
-
 # ALTERNATIVELY
 #timeit.timeit(function, number = 1000)
+
+
 

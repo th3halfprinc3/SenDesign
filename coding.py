@@ -93,40 +93,9 @@ print '\nImporting libraries...'
 import RPi.GPIO as GPIO
 from time import sleep
 import timeit
-import time
 import spidev
 from numpy import matrix
 from numpy import zeros
-
-
-
-'''
-
-def control(progNum, Aext, Aflex, Pext, Pflex):
-
-	x0 = 90
-	if ( progNum == 1 ):	# Extension
-	
-		#readPot()
-		# ...
-		# distTrav = 
-	
-		# If we have reached the end of the patients active ROM, engage motor.
-		if ( (distTrav - x0) <= Aext and not(Pext >= (distTrav - x0)) ):
-			GPIO.output(ENABLE, HIGH)	# Send a high enable signal to engage motor
-			controlSystem()
-		else:
-			pass
-		#End if
-	elif ( progNum == 2 ):	# Flexion
-		#readPot()
-		# ...
-		# distTrav = 
-		if (  ):
-#End 
-
-'''
-
 
 
 
@@ -161,8 +130,7 @@ def readPWM(pinNum):
 			totCount += 1
 
 		#End if
-	#End while
-	
+	#End while	
 
 	endpwm = timeit.timeit()
 	totalTime = abs(1000*(endpwm - startpwm))	# Convert sec to ms
@@ -190,6 +158,8 @@ def buttonPress(channel):
 		GPIO.cleanup()
 		endb = timeit.timeit()
 		totalTime = abs(1000*(endb - startb))
+		with open("responseTimes.txt", "a") as myfile:
+			myfile.write("\nButton " + str(totalTime))
 		print 'Response time after button press is: ', totalTime, 'ms.'
 		exit(0)
 	#Endfinally
@@ -211,10 +181,10 @@ def controlSystem():
 			if( progChoice == 'debug'):
 				break
 			elif( progChoice == 'flex' or progChoice == 'ext' or progChoice == 'extension' or progChoice == 'flexion' ):
-
+	
 				print '''You have chosen %s, is this correct? ''' %( progChoice )
 				rpt = raw_input().lower().strip()
-	
+		
 				if ( rpt == 'yes' ):
 					break
 				elif ( rpt == 'no'):
@@ -222,13 +192,12 @@ def controlSystem():
 				else:
 					print "Please Enter 'yes' or 'no'."
 				#End if
-	
+		
 			else:
 				print "Please enter 'flex', 'flexion', 'ext', or 'extension'."
 			#End if
 		#End while
-
-	
+			
 		pauseTime = 0.02
 	
 		print 'Please position the brace at 90 degrees.'
@@ -443,6 +412,8 @@ def controlSystem():
 			#Endwhile
 
 		else:	# Debugging
+			GPIO.output(ENABLE1, GPIO.HIGH)
+			GPIO.output(ENABLE2, GPIO.HIGH)
 			print 'Clockwise'
 			for i in range(52, 101):
 				pwmControl1.ChangeDutyCycle(i)
@@ -489,6 +460,8 @@ def controlSystem():
 	
 		endK = timeit.timeit()
 		totalTime = abs(1000*(endK - startK))
+		with open("responseTimes.txt", "a") as myfile:
+			myfile.write("Button " + str(totalTime))
 		print 'Time elapsed after ', string,' is: ', totalTime, 'ms.'
 
 		exit()
@@ -685,27 +658,38 @@ Passive ROM (degrees) \t = \t%d - %d''' %(height, weight, Aext, Aflex, Pext, Pfl
 # Run main if called.
 if __name__ == '__main__':
 
+	debug = 1 
+	if debug:
+		height = 66
+		weight = 150
+		Aext = 25
+		Aflex = 100
+		Pext = 10
+		Pflex = 115
 
-	print '\nPress CTRL-C to stop the program at any time.'
-	print '\nTaking user input...'
-	height, weight, Aext, Aflex, Pext, Pflex = getAndCalcParameters()
+	else:
+	
+		print '\nPress CTRL-C to stop the program at any time.'
+		print '\nTaking user input...'
+		height, weight, Aext, Aflex, Pext, Pflex = getAndCalcParameters()
+	#End if
 
 	'''
 	MOTOR INITIALIZATION & SETUP
 	1. Initialize & setup pins for motor, rotary encoder and PWM.
 	2. Initialize any constants necessary.
 	'''
-	
+
 	# motor pins, BCM
-	inputB1 = 19
-	ENABLE1 = 20
-	HLFB1 = 17
+	inputB1 = 19	# 35	BLACK
+	ENABLE1 = 20	# 38	BLUE
+	HLFB1 = 17		# 11	GREEN
 
-	inputB2 = 26
-	ENABLE2 = 21
-	HLFB2 = 18
+	inputB2 = 26	# 37	BLACK
+	ENABLE2 = 21	# 40	BLUE
+	HLFB2 = 18		# 12	GREEN
 
-	button = 23
+	button = 23		# 16
 	print '\nInitializing and setting up the motor...\n'
 
 	# Try to use BOARD instead of BCM.

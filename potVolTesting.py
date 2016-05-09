@@ -58,12 +58,29 @@ X ( deg )		Y ( Volts )
 
 dV = 0.0037
 vol = 1.32
-l = 141
-A = zeros(shape = (1, l))
-for i in range(0, l):
-	A[0, i] = vol
+l = 120
+
+# j represents the angle of the pot
+# i represents the angle of the knee
+# vol is the voltage associated with the knee
+
+for i in range(l):
+	with open( "kneeVoltAngle.txt", "a" ) as myfile:
+		myfile.write( str(i) + "," + str(vol) + "\n" )
+
 	vol += dV
 #End for
+
+vol = 0
+dV = 0.000917
+
+for i in range(3600):
+	with open( "potVoltAngle.txt", "a" ) as myfile:
+		myfile.write( str(i-1800) + "," + str(vol) + "\n" )
+
+	vol += dV
+#End if
+
 
 try:
 	while True:
