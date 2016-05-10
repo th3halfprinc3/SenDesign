@@ -33,10 +33,10 @@ Button
 HLFB	---	green
 	- GREEN		GPIO Pin 12
 	- RED			GND
-INPUT B	---	white
+INPUT B	---	brown
 	- BLK			GPIO Pin 7
 	- YELLOW		GND
-ENABLE	---	blue
+ENABLE	---	gray
 	- BLUE		GPIO Pin 40
 	- ORANGE		GND
 
@@ -94,9 +94,10 @@ import RPi.GPIO as GPIO
 from time import sleep
 import timeit
 import spidev
-from numpy import matrix
-from numpy import zeros
+import numpy
 
+spi = spidev.SpiDev()
+spi.open(0, 0)
 
 
 def readADC(adcnum):
@@ -149,17 +150,16 @@ def buttonPress(channel):
 		GPIO.output(ENABLE2, GPIO.LOW)
 		pwmControl1.stop()
 		pwmControl2.stop()
-		print 'Feedback and control disabled after button press.'
+		string = 'Control disabled after button press.'
 	#Endtry
 
 	finally:
-		GPIO.output(ENABLE1, GPIO.LOW)
-		GPIO.output(ENABLE2, GPIO.LOW)
 		GPIO.cleanup()
 		endb = timeit.timeit()
 		totalTime = abs(1000*(endb - startb))
 		with open("responseTimes.txt", "a") as myfile:
 			myfile.write("\nButton " + str(totalTime))
+		print string
 		print 'Response time after button press is: ', totalTime, 'ms.'
 		exit(0)
 	#Endfinally
@@ -174,100 +174,115 @@ RUN THE CONTROL SYSTEM
 """
 def controlSystem():
 
-	try:
+	if debug:
+		progChoice = 'debug'
+	else:
 		while True:
 			progChoice = raw_input('Which exercise would you like to do, extension or flexion? ').lower().strip()
 
-			if( progChoice == 'debug'):
-				break
-			elif( progChoice == 'flex' or progChoice == 'ext' or progChoice == 'extension' or progChoice == 'flexion' ):
-	
-				print '''You have chosen %s, is this correct? ''' %( progChoice )
-				rpt = raw_input().lower().strip()
+			if( progChoice == 'flex' or progChoice == 'ext' or progChoice == 'extension' or progChoice == 'flexion' ):
+				string = "You've chosen to do the " + progChoice + " exercise, is this correct? "
+				rpt = raw_input(string).lower().strip()
 		
-				if ( rpt == 'yes' ):
+				if ( rpt == 'yes' or rpt == 'y' ):
 					break
-				elif ( rpt == 'no'):
+				elif ( rpt == 'no' or rpt == 'n' ):
 					pass
 				else:
 					print "Please Enter 'yes' or 'no'."
 				#End if
-		
+			
 			else:
 				print "Please enter 'flex', 'flexion', 'ext', or 'extension'."
 			#End if
 		#End while
+	#End if
 			
-		pauseTime = 0.02
+	pauseTime = 0.05
 	
-		print 'Please position the brace at 90 degrees.'
-	
-	
-		dV = 0.0037
-		vol = 1.32
-		l = 141
-		A = zeros(shape = (1, l))
-	
-		# No need to include 2 rows, since the index is also the angle!
-		for i in range(0, l):
-			A[0, i] = vol
-			vol += dV
-		#End for
-	
-		sleep(3)
+	print 'Please position the brace at 90 degrees.'
 	
 	
-		'''
-		Flexion:
-		We want to start at 90 deg (or specified starting position), x(0) = pi/2 = 90 deg
-		The Aflex variable will be used to indicate when to send a high ENABLE
-		signal to start the motor. The PWM (5 - 48% DC) should slowly ramp up to 60
-		deg/s. The voltage from the pot will be used to determine the distance the
-		brace has travelled. If the distance travelled + 90 deg is within a
-		mathematically sound percent error value, then a low ENABLE signal should be
-		sent to disable the motor so the user can move their knee freely.
-		'''
-		
-		# 3.3v is 5 turns = 5*360 deg counter clockwise and 0V is 5*360 deg
-		# clockwise. 1.6V is centered and at 90 degrees if it is
-		# assembled this way. 90 deg advance is 0.0825V. So if the voltage is 1.6
-		# or greater, then the 
-		
+	dV = 0.0037
+	vol = 1.32
+	l = 141
+	A = numpy.zeros(shape = (1, l))
 
-		'''
-		# how much has it changed since the last read?
-		pot_adjust = abs(trim_pot - last_read)
-	
-	
-		if ( pot_adjust > tolerance ):
-			trim_pot_changed = True
-		'''
 
+	print 'Generating lookup table'	
+	# No need to include 2 rows, since the index is also the angle!
+	for i in range(0, l):
+		A[0, i] = vol
+		vol += dV
+	#End for
+	
+	sleep(3)
+	
+	
+	'''
+	Flexion:
+	We want to start at 90 deg (or specified starting position), x(0) = pi/2 = 90 deg
+	The Aflex variable will be used to indicate when to send a high ENABLE
+	signal to start the motor. The PWM (5 - 48% DC) should slowly ramp up to 60
+	deg/s. The voltage from the pot will be used to determine the distance the
+	brace has travelled. If the distance travelled + 90 deg is within a
+	mathematically sound percent error value, then a low ENABLE signal should be
+	sent to disable the motor so the user can move their knee freely.
+	'''
+	
+	# 3.3v is 5 turns = 5*360 deg counter clockwise and 0V is 5*360 deg
+	# clockwise. 1.6V is centered and at 90 degrees if it is
+	# assembled this way. 90 deg advance is 0.0825V. So if the voltage is 1.6
+	# or greater, then the 
+	
+	'''
+	# how much has it changed since the last read?
+	pot_adjust = abs(trim_pot - last_read)
+
+
+	if ( pot_adjust > tolerance ):
+		trim_pot_changed = True
+	'''
+		
+	if not debug:
 		# Volts/bit constant
 		voltBit = 3.3/1024
-	
+		print 'reading adc'	
+
+		'''
+		Encountered a bug here, it might have something to do with the SPI
+		library being used.
+		'''
+
 		# Initial analog voltage should be close to 1.65V
-		anaVol = voltBit * readADC( 0 )	# Read from channel 0 on the ADC
+		adcout = readADC( 0 )	# Read from channel 0 on the ADC
+		curVol = voltBit*adcout		
 	
 		# Since the brace will start near 90 degrees
-		curPos = (np.abs(A - anaVol)).argmin()
-	
-	
-		'''
-		Extension:
-		We want to start at 90 deg (or specified starting position), x(0) =
-		pi/2 = 90 deg. The Aext variable will be used to indicate when to send
-		a high ENABLE signal to start the motor. The PWM (52 - 95% DC) should
-		be slowly ramped up to 60 deg/s,	or immediately to this value. The pot
-		will be used to determine how much distance the brace has travelled.
-		If the distance travelled + 90deg is within 2 or 3	degrees (or use a
-		percent error value, which would be more mathematically sound!) of
-		Pext, then send a low ENABLE signal. This will stop the motor and
-		allow the knee to move freely.
-		'''
+		curPos = (numpy.abs(A - curVol)).argmin()
 
-		speed = 60	# deg/s
+		print 'Analog voltage is ', curVol
+		print 'Current position is ', curPos
+	#End if
+	
+	'''
+	Extension:
+	We want to start at 90 deg (or specified starting position), x(0) =
+	pi/2 = 90 deg. The Aext variable will be used to indicate when to send
+	a high ENABLE signal to start the motor. The PWM (52 - 95% DC) should
+	be slowly ramped up to 60 deg/s,	or immediately to this value. The pot
+	will be used to determine how much distance the brace has travelled.
+	If the distance travelled + 90deg is within 2 or 3	degrees (or use a
+	percent error value, which would be more mathematically sound!) of
+	Pext, then send a low ENABLE signal. This will stop the motor and
+	allow the knee to move freely.
+	'''
 
+	speed = 60	# deg/s
+		
+
+	GPIO.setmode(GPIO.BOARD)
+	try:
 		if( progChoice == 'ext' or progChoice == 'extension' ):
 
 			# Ensure that the motor is NOT enabled.
@@ -276,8 +291,12 @@ def controlSystem():
 
 			# Do nothing while the angle is less than the active value
 			while curPos > Aext:
+				print 'entered while'
 				lastVol = curVol
-				curVol = voltBit * readADC( adcNum )
+				
+
+
+				curVol = voltBit * readADC( 0 )
 				print 'Analog voltage = ', curVol
 
 				if( curVol > 1.761 or curVol < 1.32 ):
@@ -286,48 +305,45 @@ def controlSystem():
 				else:
 					pass
 				#End if
-
 				# Gets the voltage in the table A that is closest to the analog
 				# voltage and returns its index and thus the degrees
 				curPos = (numpy.abs(A - curVol)).argmin()
 				print 'Current Position = ', curPos
-				
-				if( curPos > 118 or curPos < 2 ):
+					
+				if( curPos > 117 or curPos < 3 ):
 					print 'The position of the brace is approaching the extent of the intended ROM! Exiting.'
 					exit()
 				else:
 					pass
 				#End if
 			#End while
-							
+								
 			# Enable the motor.
 			GPIO.output(ENABLE1, GPIO.HIGH)
 			GPIO.output(ENABLE2, GPIO.HIGH)
 			print 'Engaging Control and Feedback.'
-
-			while curPos > Pext:
 	
+			while curPos > Pext:
+		
 				# Reads the feedack signal and determinses the Duty Cycle
 				DC = readPWM(HLFB)
 				print 'Duty Cycle from HLFB = ', DC
-
+	
 				lastVol = curVol
-
 				# This gives me the voltage, now associate it with a position!
 				curVol = voltBit * readADC( adcNum )
 				print 'Analog voltage = ', curVol
-				
+					
 				if( curVol > 1.761 or curVol < 1.32 ):
 					print 'The analog voltage is out of range! Exiting.'
 					exit()	# Brace is out of ROM, 0 - 120
 				else:
 					pass
 				#End if
-
+	
 				curPos = (numpy.abs(A - curVol)).argmin()
 				print 'Current Position = ', curPos
-
-				if( curPos > 118 or curPos < 2 ):
+				if( curPos > 117 or curPos < 3 ):
 					print 'The position of the brace is approaching the extent of the intended ROM! Exiting.'
 					GPIO.output(ENABLE1, GPIO.LOW)
 					GPIO.output(ENABLE2, GPIO.LOW)
@@ -335,37 +351,35 @@ def controlSystem():
 				else:
 					pass
 				#End if
-
 				pwmControl1.ChangeDutyCycle(5)		# 60 deg/s counter clockwise
 				pwmControl2.ChangeDutyCycle(95)		# 60 deg/s clockwise
 			#Endwhile
-
 	
+		
 		elif( progChoice == 'flex' or progChoice == 'flexion' ):
-
+	
 			# Ensure that the motor is NOT enabled.
 			GPIO.output(ENABLE1, GPIO.LOW)
 			GPIO.output(ENABLE2, GPIO.LOW)
 			
 			# Do nothing while the angle is less than the active value
 			while ang < Aflex:
-
 				curVol = voltBit * readADC( adcNum )
 				print 'Analog voltage = ', curVol
-
+	
 				if( curVol > 1.761 or curVol < 1.32 ):
 					print 'The analog voltage is out of range! Exiting.'
 					exit()	# Brace is out of ROM, 0 - 120
 				else:
 					pass
 				#End if
-
+	
 				# Gets the voltage in the table A that is closest to the analog
 				# voltage and returns its index and thus the degrees
 				curPos = (numpy.abs(A - curVol)).argmin()
 				print 'Current Position = ', curPos
 				
-				if( curPos > 118 or curPos < 2 ):
+				if( curPos > 117 or curPos < 3 ):
 					print 'The position of the brace is approaching the extent of the intended ROM! Exiting.'
 					GPIO.output(ENABLE1, GPIO.LOW)
 					GPIO.output(ENABLE2, GPIO.LOW)
@@ -374,12 +388,11 @@ def controlSystem():
 					pass
 				#End if
 			#Endwhile
-	
+		
 			GPIO.output(ENABLE1, GPIO.HIGH)
 			GPIO.output(ENABLE2, GPIO.HIGH)
-
 			while ang < Pflex:
-
+	
 				# Reads the feedack signal and determinses the Duty Cycle
 				DC = readPWM(HLFB)
 				print 'Duty Cycle from HLFB = ', DC
@@ -394,11 +407,11 @@ def controlSystem():
 				else:
 					pass
 				#End if
-
+	
 				curPos = (numpy.abs(A - curVol)).argmin()
 				print 'Current Position = ', curPos
-
-				if( curPos > 118 or curPos < 2 ):
+	
+				if( curPos > 117 or curPos < 3 ):
 					print 'The position of the brace is approaching the extent of the intended ROM! Exiting.'
 					GPIO.output(ENABLE1, GPIO.LOW)
 					GPIO.output(ENABLE2, GPIO.LOW)
@@ -406,39 +419,42 @@ def controlSystem():
 				else:
 					pass
 				#End if
-
 				pwmControl1.ChangeDutyCycle(95)		# 60 deg/s clockwise
 				pwmControl2.ChangeDutyCycle(5)		# 60 deg/s counter clockwise
 			#Endwhile
-
+	
 		else:	# Debugging
 			GPIO.output(ENABLE1, GPIO.HIGH)
 			GPIO.output(ENABLE2, GPIO.HIGH)
-			print 'Clockwise'
-			for i in range(52, 101):
-				pwmControl1.ChangeDutyCycle(i)
-				pwmControl2.ChangeDutyCycle(100-i)
-				sleep(pauseTime)
-			#Endfor
-				
-			print 'Counter Clockwise'
-			for i in range(49):
-				pwmControl1.ChangeDutyCycle(100-i)
-				pwmControl2.ChangeDutyCycle(i)
-				sleep(pauseTime)
-			#Endfor
+			while True:
+				print 'Clockwise'
+				for i in range(52, 96):
+					pwmControl1.ChangeDutyCycle(i)
+					#pwmControl2.ChangeDutyCycle(100-i)
+					sleep(pauseTime)
+				#Endfor
+				pwmControl1.ChangeDutyCycle(50)
+				sleep(0.5)
+				print 'Counter Clockwise'
+				for i in range(48, 5, -1):
+					pwmControl1.ChangeDutyCycle(i)
+					#pwmControl2.ChangeDutyCycle(100-i)
+					sleep(pauseTime)
+				#Endfor
+				pwmControl1.ChangeDutyCycle(50)
+				sleep(0.5)
+			#End while
 		#Endif
-
+		
 		print 'Disabling motor...'
 		GPIO.output(ENABLE1, GPIO.LOW)
 		GPIO.output(ENABLE2, GPIO.LOW)
-
 		print 'Stopping PWMs...'
 		pwmControl1.ChangeDutyCycle(50)
 		pwmControl2.ChangeDutyCycle(50)
 		pwmControl1.stop()
 		pwmControl2.stop()
-
+	
 		print 'Cleaning GPIO pins...'
 		GPIO.cleanup()
 		string = 'completion'
@@ -448,24 +464,27 @@ def controlSystem():
 		startK = timeit.timeit()
 		GPIO.output(ENABLE1, GPIO.LOW)
 		GPIO.output(ENABLE2, GPIO.LOW)
-		string = 'keyboard interrupt'
+		string = 'CTRL-C'
 	
 	finally:
-		GPIO.output(ENABLE1, GPIO.LOW)
-		GPIO.output(ENABLE2, GPIO.LOW)
+		if not(string == 'CTRL-C'):
+			GPIO.output(ENABLE1, GPIO.LOW)
+			GPIO.output(ENABLE1, GPIO.LOW)
+		#End if
 		pwmControl1.stop()
 		pwmControl2.stop()
+		GPIO.cleanup()
+		
 		print 'Feedback and control disabled after error.'
-		GPIO.cleanup()#Endtry
-	
 		endK = timeit.timeit()
 		totalTime = abs(1000*(endK - startK))
 		with open("responseTimes.txt", "a") as myfile:
-			myfile.write("Button " + str(totalTime))
-		print 'Time elapsed after ', string,' is: ', totalTime, 'ms.'
+			myfile.write("\n" + string +" "+ str(totalTime))
+		print 'Time elapsed after', string,'is:', totalTime, 'ms.'
 
 		exit()
 	#Endtry
+	print 'Outside finally'
 #EndcontrolSystem
 
 
@@ -681,20 +700,20 @@ if __name__ == '__main__':
 	'''
 
 	# motor pins, BCM
-	inputB1 = 19	# 35	BLACK
-	ENABLE1 = 20	# 38	BLUE
-	HLFB1 = 17		# 11	GREEN
+	inputB1 = 35	# 35	BLACK
+	ENABLE1 = 38	# 38	BLUE
+	HLFB1 = 11		# 11	GREEN
 
-	inputB2 = 26	# 37	BLACK
-	ENABLE2 = 21	# 40	BLUE
-	HLFB2 = 18		# 12	GREEN
+	inputB2 = 37	# 37	BLACK
+	ENABLE2 = 40	# 40	BLUE
+	HLFB2 = 12		# 12	GREEN
 
-	button = 23		# 16
+	button = 16		# 16
 	print '\nInitializing and setting up the motor...\n'
 
 	# Try to use BOARD instead of BCM.
 	# This is because BCM can break between revisions of the Rasp Pi
-	GPIO.setmode(GPIO.BCM)
+	GPIO.setmode(GPIO.BOARD)
 	
 	# PWM output to control speed of the motor.
 	GPIO.setup(inputB1, GPIO.OUT)
